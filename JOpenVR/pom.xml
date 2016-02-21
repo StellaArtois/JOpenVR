@@ -6,7 +6,7 @@
 
   <groupId>openvr</groupId>
   <artifactId>JOpenVR</artifactId>
-  <version>0.9.0.16.0</version>
+  <version>0.9.16.0</version>
 
   <name>JOpenVR</name>
   <description>Java Wrapper (JNI) for OpenVR under Windows, OSX, and Linux.</description>

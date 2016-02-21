@@ -43,15 +43,15 @@ IF NOT EXIST %MSBUILDDIR%msbuild.exe goto MissingMSBuildExe
 
 :: Visual Studio 2012 or greater currently required.
 
-del /F /Q "%~dp0\natives\windows\JRiftLibrary*.dll"
+del /F /Q "%~dp0\natives\windows\JOpenVRLibrary*.dll"
 
 :: Build Win64 dll
-"%MSBUILDDIR%msbuild.exe" "%~dp0\win64\JRiftLibrary.sln" /t:JRiftLibrary64:clean;rebuild /p:Configuration=Release;Platform=x64 /v:normal
+"%MSBUILDDIR%msbuild.exe" "%~dp0\win64\JOpenVRLibrary.sln" /t:JOpenVRLibrary64:clean;rebuild /p:Configuration=Release;Platform=x64 /v:normal
 
 :: Build Win32 dll
-"%MSBUILDDIR%msbuild.exe" "%~dp0\win32\JRiftLibrary.sln" /t:JRiftLibrary:clean;rebuild /p:Configuration=Release;Platform=Win32 /v:normal
+"%MSBUILDDIR%msbuild.exe" "%~dp0\win32\JOpenVRLibrary.sln" /t:JOpenVRLibrary:clean;rebuild /p:Configuration=Release;Platform=Win32 /v:normal
 
-:: dlls will have been built to JRiftLibrary\natives\windows
+:: dlls will have been built to JOpenVRLibrary\natives\windows
 
 cd /D %CURDIR%
 
