@@ -1,0 +1,47 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                      http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>openvr</groupId>
+  <artifactId>JOpenVRLibrary</artifactId>
+  <version>0.9.0.16.0</version>
+
+  <name>JOpenVRLibrary</name>
+  <description>Java Wrapper (JNI) for OpenVR under Windows, OSX, and Linux.</description>
+  <url>https://github.com/StellaArtois/JOpenVR</url>
+
+  <distributionManagement>
+	<repository>
+	  <id>minecrift</id>
+	  <url>file:../../repo/</url>
+    </repository>
+  </distributionManagement>
+
+  <build>
+	<plugins>
+	  <plugin>
+	    <artifactId>maven-assembly-plugin</artifactId>
+		<version>2.4</version>
+		<configuration>
+		  <descriptors>
+			<descriptor>natives-windows.xml</descriptor>
+			<descriptor>natives-osx.xml</descriptor>
+			<descriptor>natives-linux.xml</descriptor>
+		  </descriptors>
+		</configuration>
+		<executions>
+		  <execution>
+            <id>natives</id>
+			<phase>package</phase>
+			<goals>
+			  <goal>single</goal>
+			</goals>
+		  </execution>
+		</executions>
+	  </plugin>
+	</plugins>
+  </build>
+
+</project>
