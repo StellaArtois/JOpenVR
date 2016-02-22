@@ -4,7 +4,7 @@
                       http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>openvr</groupId>
+  <groupId>com.valvesoftware.openvr</groupId>
   <artifactId>JOpenVRLibrary</artifactId>
   <version>0.9.16.0</version>
 

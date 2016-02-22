@@ -2,3 +2,5 @@ JOpenVRLibrary/osx32
 JOpenVRLibrary/osx64
 JOpenVRLibrary/win32/
 JOpenVRLibrary/win64/
+JOpenVRLibrary/natives/windows/JOpenVRLibrary64.ilk
+JOpenVRLibrary/natives/windows/JOpenVRLibrary64.pdb
