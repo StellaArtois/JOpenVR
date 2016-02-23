@@ -130,11 +130,13 @@ public class OpenVR //implements IVR
         //Launcher takes care of extracting natives
         if( is64bit )
         {
+            System.loadLibrary("openvr_api");
             System.loadLibrary("JOpenVRLibrary64");
             System.out.println("Loaded JOpenVR native library (64bit)");
         }
         else
         {
+            System.loadLibrary("openvr_api");
             System.loadLibrary("JOpenVRLibrary");
             System.out.println("Loaded JOpenVR native library (32bit)");
         }
@@ -156,8 +158,7 @@ public class OpenVR //implements IVR
         // Initialise
         if (!ovr.init())
         {
-            ErrorInfo ei = ovr.getLastError();
-            System.out.println("Failed to initialise OpenVR lib: %s", ei.errorStr);
+            System.out.println("Failed to initialise OpenVR lib: " + ovr.getLastError());
             return;
         }
 
@@ -232,7 +233,7 @@ public class OpenVR //implements IVR
         }
         */
 
-        or.destroy();
+        ovr.destroy();
     }
 
     /*
