@@ -26,9 +26,12 @@
 		<version>2.4</version>
 		<configuration>
 		  <descriptors>
-			<descriptor>natives-windows.xml</descriptor>
-			<descriptor>natives-osx.xml</descriptor>
-			<descriptor>natives-linux.xml</descriptor>
+			<descriptor>natives-windows-32.xml</descriptor>
+			<descriptor>natives-osx-32.xml</descriptor>
+			<descriptor>natives-linux-32.xml</descriptor>
+			<descriptor>natives-windows-64.xml</descriptor>
+			<descriptor>natives-osx-64.xml</descriptor>
+			<descriptor>natives-linux-64.xml</descriptor>            
 		  </descriptors>
 		</configuration>
 		<executions>

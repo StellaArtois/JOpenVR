@@ -53,11 +53,15 @@ option(ENABLE_LTO "Build with Link-Time Optimization" FALSE)
 endif()
 
 if(WIN32)
-    set ( NATIVES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/natives/windows )
+    set ( NATIVES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/natives/windows/${ARCH} )
+    set ( SHARED_LIB_SRC_LOC ${CMAKE_CURRENT_SOURCE_DIR}/openvr/bin/win${ARCH}/openvr_api.dll )
 elseif(APPLE)
-    set ( NATIVES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/natives/osx )
+    set ( NATIVES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/natives/osx/${ARCH} )
+    set ( SHARED_LIB_SRC_LOC ${CMAKE_CURRENT_SOURCE_DIR}/openvr/bin/osx32/libopenvr_api.dylib )
 else()
-    set ( NATIVES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/natives/linux )
+    set ( NATIVES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/natives/linux/${ARCH} )
+    set ( SHARED_LIB_SRC_LOC ${CMAKE_CURRENT_SOURCE_DIR}/openvr/bin/linux${ARCH}/libopenvr_api.so )
+
 endif()
 
 set( CMAKE_RUNTIME_OUTPUT_DIRECTORY ${NATIVES_DIR} )
@@ -69,5 +73,7 @@ endforeach( OUTPUTCONFIG CMAKE_CONFIGURATION_TYPES )
 set( JOPENVR_DYNLIB_NAME JOpenVRLibrary${BITS} )
 add_library(${JOPENVR_DYNLIB_NAME} SHARED ${CMAKE_CURRENT_SOURCE_DIR}/src/JOpenVRLibrary.cpp)
 target_link_libraries (${JOPENVR_DYNLIB_NAME} openvr_api)
+
+file(COPY ${SHARED_LIB_SRC_LOC} DESTINATION ${NATIVES_DIR})
 
 
