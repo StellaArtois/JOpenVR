@@ -11,7 +11,7 @@
 	  <directory>natives/osx/32</directory>
 	  <outputDirectory>/</outputDirectory>
       <includes>
-        <include>libJOpenVRLibrary.dylib</include>
+        <include>libJOpenVRLibrary.jnilib</include>
         <include>libopenvr_api.dylib</include>
       </includes>        
     </fileSet>
