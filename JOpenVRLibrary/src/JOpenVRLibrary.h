@@ -2,8 +2,11 @@
 #include <string>
 #include <memory>
 
-#include "openvr.h"
+#if defined(__linux__)
+#define COMPILER_GCC
+#endif
 
+#include "openvr.h"
 
 /* Header */
 
