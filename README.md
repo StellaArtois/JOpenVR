@@ -14,11 +14,16 @@ Building
 JOpenVR - the java part
 ---------------------
 
-- Change directory to <JOpenVR root>/JOpenVR/
-- Run 'mvn package'. This will create the appropriately named <JOpenVR-version>.jar in <JOpenVR root>/JOpenVR/target/
+- Change directory to `<JOpenVR root>/JOpenVR/`
+- Run `mvn package`. This will create the appropriately named <JOpenVR-version>.jar in `<JOpenVR root>/JOpenVR/target/`
 
 JOpenVRLibrary - the C++ JNI part
 -------------------------------
+
+- Change directory to `<JOpenVR root>/JOpenVRLibrary`
+- clone Valve’s OpenVR Git repository from [github.com/ValveSoftware/openvr](https://github.com/ValveSoftware/openvr) to `<JOpenVR root/JOpenVRLibrary/openvr`
+- run the build script appropriate for your platform (either `build_osx.sh`, `build_linux.sh` or `build_windows.bat`)
+- run `mvn package`. This will create the JARs containing the native libraries in `<JOpenVR root/JOpenVRLibrary/target`.
 
 
 
