@@ -16,6 +16,23 @@
 extern "C" {
 #endif
 
+struct Pose
+{
+	Pose()
+	{
+		orient.x = 0;
+		orient.y = 0;
+		orient.z = 0;
+		orient.w = 1;
+		pos.v[0] = 0;
+		pos.v[1] = 0;
+		pos.v[2] = 0;
+	}
+
+	vr::HmdQuaternion_t orient;
+	vr::HmdVector3_t pos;
+};
+
 /*
  * Class:     com_valvesoftware_openvr_OpenVR
  * Method:    _initSubsystem
@@ -66,8 +83,10 @@ bool LookupJNIFieldGlobal(JNIEnv *env,
 void SetGenericErrorInfo(JNIEnv *env, const char* error);
 void SetErrorInfo(JNIEnv *env, const char* error, vr::EVRInitError eError);
 jobject GetLastErrorInfo(JNIEnv *env); 
-void convertPose(const vr::HmdMatrix34_t& mat34, vr::HmdQuaternion_t& orientation, vr::HmdVector3d_t& position);
+void ConvertMat34ToPose(const vr::HmdMatrix34_t& mat34, Pose& pose);
 void QuatfromRotationMatrix(const vr::HmdMatrix44_t& mat4, vr::HmdQuaternion_t& orientation);
+void ConvertMat34to44(const vr::HmdMatrix34_t& mat34, vr::HmdMatrix44_t& mat4);
+void QuatSlerp(vr::HmdQuaternion_t q1, vr::HmdQuaternion_t q2, float t, vr::HmdQuaternion_t& quatresult);
 
 #ifdef __cplusplus
 }

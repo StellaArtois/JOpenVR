@@ -605,25 +605,30 @@ jobject GetLastErrorInfo(JNIEnv *env)
 //
 // With thanks to https://github.com/phr00t/jMonkeyVR/
 //
-void convertPose(const vr::HmdMatrix34_t& mat34, vr::HmdQuaternion_t& orientation, vr::HmdVector3d_t& position)
+void ConvertMat34ToPose(const vr::HmdMatrix34_t& mat34, Pose& pose)
 {
 	// Convert to standard 4x4 matrix
 	vr::HmdMatrix44_t mat4;
+	ConvertMat34to44(mat34, mat4);
+
+	// Get orientation
+	QuatfromRotationMatrix(mat4, pose.orient);
+	// flip the pitch
+	pose.orient.x = -pose.orient.x;
+	pose.orient.z = -pose.orient.z;
+
+	// Get position
+	pose.pos.v[0] = -mat4.m[0][3];  // -x
+	pose.pos.v[1] =  mat4.m[1][3];  //  y
+	pose.pos.v[2] = -mat4.m[2][3];  // -z
+}
+
+void ConvertMat34to44(const vr::HmdMatrix34_t& mat34, vr::HmdMatrix44_t& mat4)
+{
 	mat4.m[0][0] = mat34.m[0][0]; mat4.m[1][0] = mat34.m[1][0]; mat4.m[2][0] = mat34.m[2][0]; mat4.m[3][0] = 0.0;
 	mat4.m[0][1] = mat34.m[0][1]; mat4.m[1][1] = mat34.m[1][1]; mat4.m[2][1] = mat34.m[2][1]; mat4.m[3][1] = 0.0;
 	mat4.m[0][2] = mat34.m[0][2]; mat4.m[1][2] = mat34.m[1][2]; mat4.m[2][2] = mat34.m[2][2]; mat4.m[3][2] = 0.0;
 	mat4.m[0][3] = mat34.m[0][3]; mat4.m[1][3] = mat34.m[1][3]; mat4.m[2][3] = mat34.m[2][3]; mat4.m[3][4] = 1.0;
-
-	// Get orientation
-	QuatfromRotationMatrix(mat4, orientation);
-	// flip the pitch
-	orientation.x = -orientation.x;
-	orientation.z = -orientation.z;
-
-	// Get position
-	position.v[0] = -mat4.m[0][3];  // -x
-	position.v[1] =  mat4.m[1][3];  //  y
-	position.v[2] = -mat4.m[2][3];  // -z
 }
 
 //
@@ -712,4 +717,60 @@ void QuatfromRotationMatrix(const vr::HmdMatrix44_t& mat4, vr::HmdQuaternion_t& 
         orientation.y = (m21 + m12) * s;
         orientation.w = (m10 - m01) * s;
     }
+}
+
+//
+// With thanks to https://github.com/jMonkeyEngine/jmonkeyengine
+//
+void QuatSlerp(vr::HmdQuaternion_t q1, vr::HmdQuaternion_t q2, float t, vr::HmdQuaternion_t& quatresult) 
+{
+    // Create a local quaternion to store the interpolated quaternion
+    if (q1.x == q2.x && q1.y == q2.y && q1.z == q2.z && q1.w == q2.w) 
+	{
+		quatresult.x = q1.x;
+		quatresult.y = q1.y;
+		quatresult.z = q1.z;
+		quatresult.w = q1.w;
+        return;
+    }
+
+    float result = (q1.x * q2.x) + (q1.y * q2.y) + (q1.z * q2.z)
+            + (q1.w * q2.w);
+
+    if (result < 0) 
+	{
+        // Negate the second quaternion and the result of the dot product
+        q2.x = -q2.x;
+        q2.y = -q2.y;
+        q2.z = -q2.z;
+        q2.w = -q2.w;
+        result = -result;
+    }
+
+    // Set the first and second scale for the interpolation
+    float scale0 = 1 - t;
+    float scale1 = t;
+
+    // Check if the angle between the 2 quaternions was big enough to
+    // warrant such calculations
+    if ((1 - result) > 0.1f) 
+	{
+		// Get the angle between the 2 quaternions,
+        // and then store the sin() of that angle
+        float theta = acos(result);
+        float invSinTheta = 1 / sin(theta);
+
+        // Calculate the scale for q1 and q2, according to the angle and
+        // it's sine value
+        scale0 = sin((1 - t) * theta) * invSinTheta;
+        scale1 = sin((t * theta)) * invSinTheta;
+    }
+
+    // Calculate the x, y, z and w values for the quaternion by using a
+    // special
+    // form of linear interpolation for quaternions.
+    quatresult.x = (scale0 * q1.x) + (scale1 * q2.x);
+    quatresult.y = (scale0 * q1.y) + (scale1 * q2.y);
+    quatresult.z = (scale0 * q1.z) + (scale1 * q2.z);
+    quatresult.w = (scale0 * q1.w) + (scale1 * q2.w);
 }
