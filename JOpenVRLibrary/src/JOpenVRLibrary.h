@@ -65,8 +65,10 @@ bool LookupJNIFieldGlobal(JNIEnv *env,
 					 std::string FieldName);
 void SetGenericErrorInfo(JNIEnv *env, const char* error);
 void SetErrorInfo(JNIEnv *env, const char* error, vr::EVRInitError eError);
-jobject GetLastErrorInfo(JNIEnv *env);                     
-    
+jobject GetLastErrorInfo(JNIEnv *env); 
+void convertPose(const vr::HmdMatrix34_t& mat34, vr::HmdQuaternion_t& orientation, vr::HmdVector3d_t& position);
+void QuatfromRotationMatrix(const vr::HmdMatrix44_t& mat4, vr::HmdQuaternion_t& orientation);
+
 #ifdef __cplusplus
 }
 #endif

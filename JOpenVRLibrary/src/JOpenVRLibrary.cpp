@@ -36,6 +36,8 @@ struct ErrorInfo
 ErrorInfo           _lastError;
 
 // JNI class / method caching
+static jclass       matrix4f_Class                          = 0;
+static jmethodID    matrix4f_constructor_MethodID           = 0;
 static jclass       errorInfo_Class                         = 0;
 static jmethodID    errorInfo_constructor_MethodID          = 0;
 
@@ -78,6 +80,14 @@ JNIEXPORT jboolean JNICALL Java_com_valvesoftware_openvr_OpenVR__1initSubsystem(
 		SetErrorInfo(env, "Unable to initialise OpenVR Rendermodels!", eError);
 		return false;
 	}
+    
+    // Setup the compositor
+    if ( !vr::VRCompositor() )
+    {
+        Reset();
+		SetErrorInfo(env, "Unable to initialise OpenVR compositor!");
+		return false;
+    }
 	
  	SetErrorInfo(env, "Initialised OpenVR successfully!", eError);
 	return true;
@@ -94,8 +104,318 @@ JNIEXPORT void JNICALL Java_com_valvesoftware_openvr_OpenVR__1destroySubsystem(J
 	Reset();
 }
 
- 
+JNIEXPORT jobject JNICALL Java_com_valvesoftware_openvr_OpenVR__1getHmdParameters(JNIEnv *env, jobject) 
+{
+	if (!_initialised) 
+        return 0;
+
+    jstring productName = env->NewStringUTF( _hmdDesc.ProductName == NULL ? "" : _hmdDesc.ProductName );
+    jstring manufacturer = env->NewStringUTF( _hmdDesc.Manufacturer == NULL ? "" : _hmdDesc.Manufacturer );
+	jstring serialnumber = env->NewStringUTF( _hmdDesc.SerialNumber == NULL ? "" : _hmdDesc.SerialNumber );
     
+    ClearException(env);
+
+    jobject jHmdDesc = env->NewObject(hmdDesc_Class, hmdDesc_constructor_MethodID,
+                                      (int)_hmdDesc.Type,
+									  productName,
+                                      manufacturer,
+									  (int)_hmdDesc.VendorId,
+									  (int)_hmdDesc.ProductId,
+									  serialnumber,
+									  (int)_hmdDesc.FirmwareMajor,
+									  (int)_hmdDesc.FirmwareMinor,
+									  _hmdDesc.CameraFrustumHFovInRadians,
+									  _hmdDesc.CameraFrustumVFovInRadians,
+									  _hmdDesc.CameraFrustumNearZInMeters,
+									  _hmdDesc.CameraFrustumFarZInMeters,
+                                      (int)_hmdDesc.AvailableHmdCaps,
+									  (int)_hmdDesc.DefaultHmdCaps,
+                                      (int)_hmdDesc.AvailableTrackingCaps,
+                                      (int)_hmdDesc.DefaultTrackingCaps,
+                                      _hmdDesc.DefaultEyeFov[0].UpTan,
+                                      _hmdDesc.DefaultEyeFov[0].DownTan,
+                                      _hmdDesc.DefaultEyeFov[0].LeftTan,
+                                      _hmdDesc.DefaultEyeFov[0].RightTan,
+                                      _hmdDesc.DefaultEyeFov[1].UpTan,
+                                      _hmdDesc.DefaultEyeFov[1].DownTan,
+                                      _hmdDesc.DefaultEyeFov[1].LeftTan,
+                                      _hmdDesc.DefaultEyeFov[1].RightTan,
+                                      _hmdDesc.MaxEyeFov[0].UpTan,
+                                      _hmdDesc.MaxEyeFov[0].DownTan,
+                                      _hmdDesc.MaxEyeFov[0].LeftTan,
+                                      _hmdDesc.MaxEyeFov[0].RightTan,
+                                      _hmdDesc.MaxEyeFov[1].UpTan,
+                                      _hmdDesc.MaxEyeFov[1].DownTan,
+                                      _hmdDesc.MaxEyeFov[1].LeftTan,
+                                      _hmdDesc.MaxEyeFov[1].RightTan,
+									  _hmdDesc.Resolution.w,
+                                      _hmdDesc.Resolution.h,
+									  _hmdDesc.DisplayRefreshRate
+									  );
+
+    env->DeleteLocalRef( productName );
+    env->DeleteLocalRef( manufacturer );
+    env->DeleteLocalRef( serialnumber );
+
+    if (jHmdDesc == 0) PrintNewObjectException(env, "HmdParameters");
+
+    return jHmdDesc;
+} 
+
+JNIEXPORT void JNICALL Java_com_valvesoftware_openvr_OpenVR__1resetTracking(JNIEnv *env, jobject) 
+{
+	if (!_initialised)
+		return;
+
+    ovr_RecenterPose(_pHmdSession);
+}
+
+JNIEXPORT void JNICALL Java_com_valvesoftware_openvr_OpenVR__1configureRenderer(
+	JNIEnv *env,
+    jobject,
+    jfloat worldScale)
+{
+	if (!_initialised)
+		return;
+
+	_worldScale = worldScale;
+}
+
+
+JNIEXPORT jobject JNICALL Java_com_valvesoftware_openvr_OpenVR__1getRenderTextureSize(
+	JNIEnv *env, 
+	jobject, 
+	jfloat leftFovUpTan,
+	jfloat leftFovDownTan,
+	jfloat leftFovLeftTan,
+	jfloat leftFovRightTan,
+	jfloat rightFovUpTan,
+	jfloat rightFovDownTan,
+	jfloat rightFovLeftTan,
+	jfloat rightFovRightTan,
+	jfloat RenderScaleFactor)
+{
+	if (!_initialised)
+		return 0;
+
+	ovrFovPort leftFov;
+	ovrFovPort rightFov;
+	leftFov.UpTan     = leftFovUpTan;
+	leftFov.DownTan   = leftFovDownTan;
+	leftFov.LeftTan   = leftFovLeftTan;
+	leftFov.RightTan  = leftFovRightTan;
+	rightFov.UpTan    = rightFovUpTan;
+	rightFov.DownTan  = rightFovDownTan;
+	rightFov.LeftTan  = rightFovLeftTan;
+	rightFov.RightTan = rightFovRightTan;
+
+	// A RenderScaleFactor of 1.0f signifies default (non-scaled) operation
+    Sizei recommendedTex0Size = ovr_GetFovTextureSize(_pHmdSession, ovrEye_Left,  leftFov, RenderScaleFactor);
+    Sizei recommendedTex1Size = ovr_GetFovTextureSize(_pHmdSession, ovrEye_Right, rightFov, RenderScaleFactor);
+    Sizei RenderTargetSize;
+    RenderTargetSize.w = recommendedTex0Size.w + recommendedTex1Size.w;
+    RenderTargetSize.h = (std::max) ( recommendedTex0Size.h, recommendedTex1Size.h );
+
+    ClearException(env);
+
+    jobject jrenderTextureInfo = env->NewObject(renderTextureInfo_Class, renderTextureInfo_constructor_MethodID,
+									recommendedTex0Size.w,
+									recommendedTex0Size.h,
+									recommendedTex1Size.w,
+									recommendedTex1Size.h,
+                                    RenderTargetSize.w,
+                                    RenderTargetSize.h,
+									_hmdDesc.Resolution.w,
+									_hmdDesc.Resolution.h,
+                                    (float)RenderScaleFactor
+                                    );
+
+    if (jrenderTextureInfo == 0) PrintNewObjectException(env, "RenderTextureInfo");
+
+    return jrenderTextureInfo;
+}
+    
+JNIEXPORT jobject JNICALL Java_com_valvesoftware_openvr_OpenVR__1getTrackedPoses(
+	JNIEnv *env, 
+	jobject, 
+	jlong FrameIndex
+	)
+{
+    if (!_initialised)
+        return 0;
+
+	vr::TrackedDevicePose_t m_rTrackedDevicePose[ vr::k_unMaxTrackedDeviceCount ];
+	m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking
+
+	OpenVRUtil.convertMatrix4toQuat(hmdPose, rotStore);
+
+	// Use mandated view offsets
+	ovrVector3f ViewOffsets[2] = { _EyeRenderDesc[0].HmdToEyeViewOffset,
+                                   _EyeRenderDesc[1].HmdToEyeViewOffset };
+
+	// Get eye poses at our predicted display times
+	double ftiming = ovr_GetPredictedDisplayTime(_pHmdSession, FrameIndex);
+    _sensorSampleTime = ovr_GetTimeInSeconds();
+	//ovr_GetInputState(_pHmdSession, ovrControllerType_All, &_inputState);
+    _hmdState = ovr_GetTrackingState(_pHmdSession, ftiming, ovrTrue);
+    ovr_CalcEyePoses(_hmdState.HeadPose.ThePose, ViewOffsets, _eyeRenderPose);
+	double PredictedDisplayTime = ovr_GetPredictedDisplayTime(_pHmdSession, FrameIndex);
+
+    ClearException(env);
+	jobject jfullposestate = env->NewObject(fullPoseState_Class, fullPoseState_constructor_MethodID,
+                                 FrameIndex,
+								 _eyeRenderPose[0].Orientation.x,
+								 _eyeRenderPose[0].Orientation.y,
+								 _eyeRenderPose[0].Orientation.z,
+								 _eyeRenderPose[0].Orientation.w,
+								 _eyeRenderPose[0].Position.x,
+								 _eyeRenderPose[0].Position.y,
+								 _eyeRenderPose[0].Position.z,
+								 _eyeRenderPose[1].Orientation.x,
+								 _eyeRenderPose[1].Orientation.y,
+								 _eyeRenderPose[1].Orientation.z,
+								 _eyeRenderPose[1].Orientation.w,
+								 _eyeRenderPose[1].Position.x,
+								 _eyeRenderPose[1].Position.y,
+								 _eyeRenderPose[1].Position.z,
+								 _hmdState.HeadPose.ThePose.Orientation.x,   
+								 _hmdState.HeadPose.ThePose.Orientation.y,  
+								 _hmdState.HeadPose.ThePose.Orientation.z,   
+								 _hmdState.HeadPose.ThePose.Orientation.w,   
+								 _hmdState.HeadPose.ThePose.Position.x,      
+								 _hmdState.HeadPose.ThePose.Position.y,      
+								 _hmdState.HeadPose.ThePose.Position.z,      
+								 _hmdState.HeadPose.AngularVelocity.x,    
+								 _hmdState.HeadPose.AngularVelocity.y,    
+								 _hmdState.HeadPose.AngularVelocity.z,    
+								 _hmdState.HeadPose.LinearVelocity.x,     
+								 _hmdState.HeadPose.LinearVelocity.y,     
+								 _hmdState.HeadPose.LinearVelocity.z,     
+								 _hmdState.HeadPose.AngularAcceleration.x,
+								 _hmdState.HeadPose.AngularAcceleration.y,
+								 _hmdState.HeadPose.AngularAcceleration.z,
+								 _hmdState.HeadPose.LinearAcceleration.x, 
+								 _hmdState.HeadPose.LinearAcceleration.y, 
+								 _hmdState.HeadPose.LinearAcceleration.z, 
+								 _hmdState.HeadPose.TimeInSeconds,        
+								 _hmdState.RawSensorData.Temperature,
+								 _hmdState.StatusFlags,
+								 _hmdState.CameraPose.Orientation.x,   
+								 _hmdState.CameraPose.Orientation.y,  
+								 _hmdState.CameraPose.Orientation.z,   
+								 _hmdState.CameraPose.Orientation.w,   
+								 _hmdState.CameraPose.Position.x,      
+								 _hmdState.CameraPose.Position.y,      
+								 _hmdState.CameraPose.Position.z,
+								 _hmdState.LeveledCameraPose.Orientation.x,   
+								 _hmdState.LeveledCameraPose.Orientation.y,  
+								 _hmdState.LeveledCameraPose.Orientation.z,   
+								 _hmdState.LeveledCameraPose.Orientation.w,   
+								 _hmdState.LeveledCameraPose.Position.x,      
+								 _hmdState.LeveledCameraPose.Position.y,      
+								 _hmdState.LeveledCameraPose.Position.z,
+								 _hmdState.HandPoses[0].ThePose.Orientation.x,   
+								 _hmdState.HandPoses[0].ThePose.Orientation.y,  
+								 _hmdState.HandPoses[0].ThePose.Orientation.z,   
+								 _hmdState.HandPoses[0].ThePose.Orientation.w,   
+								 _hmdState.HandPoses[0].ThePose.Position.x,      
+								 _hmdState.HandPoses[0].ThePose.Position.y,      
+								 _hmdState.HandPoses[0].ThePose.Position.z,
+								 _hmdState.HandStatusFlags[0],
+								 _hmdState.HandPoses[1].ThePose.Orientation.x,   
+								 _hmdState.HandPoses[1].ThePose.Orientation.y,  
+								 _hmdState.HandPoses[1].ThePose.Orientation.z,   
+								 _hmdState.HandPoses[1].ThePose.Orientation.w,   
+								 _hmdState.HandPoses[1].ThePose.Position.x,      
+								 _hmdState.HandPoses[1].ThePose.Position.y,      
+								 _hmdState.HandPoses[1].ThePose.Position.z,
+								 _hmdState.HandStatusFlags[1],
+								 _hmdState.LastCameraFrameCounter,
+								 PredictedDisplayTime);
+	
+	return jfullposestate;
+}
+
+JNIEXPORT jobject JNICALL Java_com_valvesoftware_openvr_OpenVR__1getMatrix4fProjection(
+    JNIEnv *env, 
+    jobject, 
+    jfloat EyeFovPortUpTan,
+    jfloat EyeFovPortDownTan,
+    jfloat EyeFovPortLeftTan,
+    jfloat EyeFovPortRightTan,
+    jfloat nearClip,
+    jfloat farClip)
+{
+    if (!_initialised)
+        return 0;
+
+    // TODO: We're just using one eye projection, NEEDS SUPPORT FOR BOTH
+    vr::Hmd_Eye nEye = vr::Eye_Left;
+    vr::HmdMatrix44_t mat = _pHmdSession->GetProjectionMatrix(nEye, nearClip, farClip, vr::API_OpenGL);
+
+    ClearException(env);
+    jobject jproj = env->NewObject(matrix4f_Class, matrix4f_constructor_MethodID,
+                                   mat.m[0][0], mat.m[1][0], mat.m[2][0], mat.m[3][0],
+                                   mat.m[0][1], mat.m[1][1], mat.m[2][1], mat.m[3][1], 
+		                           mat.m[0][2], mat.m[1][2], mat.m[2][2], mat.m[3][2], 
+		                           mat.m[0][3], mat.m[1][3], mat.m[2][3], mat.m[3][3]
+                                   );
+	if (jproj == 0) PrintNewObjectException(env, "Matrix4f");
+
+    return jproj;
+}
+
+JNIEXPORT jobject JNICALL Java_com_valvesoftware_openvr_OpenVR__1submitFrame(
+	JNIEnv *env,
+	jobject)
+{
+    if (!_initialised)
+        return 0;
+
+    ovrViewScaleDesc viewScaleDesc;
+    viewScaleDesc.HmdSpaceToWorldScaleInMeters = _worldScale;   
+    viewScaleDesc.HmdToEyeViewOffset[0] = _EyeRenderDesc[0].HmdToEyeViewOffset;
+    viewScaleDesc.HmdToEyeViewOffset[1] = _EyeRenderDesc[1].HmdToEyeViewOffset;
+  
+    ovrLayer_Union EyeLayer;
+	ovrGLTexture* pDepthTexture[2];
+	pDepthTexture[0] = (ovrGLTexture*)&_DepthTextureSet[0].Textures[0];
+	pDepthTexture[1] = (ovrGLTexture*)&_DepthTextureSet[1].Textures[0];
+	bool HasDepth = pDepthTexture[0]->OGL.TexId == -1 ? false : true;
+
+    EyeLayer.Header.Type  = HasDepth == true ? ovrLayerType_EyeFovDepth : ovrLayerType_EyeFov;
+    EyeLayer.Header.Flags = ovrLayerFlag_TextureOriginAtBottomLeft;   // Because OpenGL.
+    
+    for (int eye = 0; eye < 2; ++eye)
+    {
+        EyeLayer.EyeFov.ColorTexture[eye] = _pRenderTextureSet[eye];
+        EyeLayer.EyeFov.Fov[eye]          = _hmdDesc.DefaultEyeFov[eye];
+        EyeLayer.EyeFov.RenderPose[eye]   = _eyeRenderPose[eye];
+        EyeLayer.EyeFov.SensorSampleTime  = _sensorSampleTime;
+		EyeLayer.EyeFov.Viewport[eye]     = Recti(0,0,_RenderTextureSize[eye].w,_RenderTextureSize[eye].h);
+
+		if (HasDepth)
+		{
+			EyeLayer.EyeFovDepth.DepthTexture[eye] = &_DepthTextureSet[eye];
+            EyeLayer.EyeFovDepth.ProjectionDesc    = _PosTimewarpProjectionDesc;
+		}
+    }
+
+    ovrLayerHeader* layers = &EyeLayer.Header;
+    ovrResult ovr_result = ovr_SubmitFrame(_pHmdSession, 0, &viewScaleDesc, &layers, 1);
+	if (OVR_FAILURE(ovr_result))
+	{
+		_SetErrorInfo(env, "Failed to submit frame!", ovr_result);
+	}
+	else
+	{
+		_SetErrorInfo(env, "Submitted frame successfully!", ovr_result);
+	}
+	
+	return GetLastErrorInfo(env);
+}
+
+
 /**** HELPERS ****/
 
 void ClearException(JNIEnv *env)
@@ -132,6 +452,16 @@ bool CacheJNIGlobals(JNIEnv *env)
 {
 	bool Success = true;
 
+
+
+    if (!LookupJNIConstructorGlobal(env,
+                         matrix4f_Class,
+                         "de/fruitfly/ovr/structs/Matrix4f",
+                         matrix4f_constructor_MethodID,
+                         "(FFFFFFFFFFFFFFFF)V"))
+    {
+        Success = false;
+    }
 
 	if (!LookupJNIConstructorGlobal(env,
                          errorInfo_Class,
@@ -270,4 +600,116 @@ jobject GetLastErrorInfo(JNIEnv *env)
 	env->DeleteLocalRef( jerrorStr );
 	if (errorInfo == 0) PrintNewObjectException(env, "ErrorInfo");
 	return errorInfo;
+}
+
+//
+// With thanks to https://github.com/phr00t/jMonkeyVR/
+//
+void convertPose(const vr::HmdMatrix34_t& mat34, vr::HmdQuaternion_t& orientation, vr::HmdVector3d_t& position)
+{
+	// Convert to standard 4x4 matrix
+	vr::HmdMatrix44_t mat4;
+	mat4.m[0][0] = mat34.m[0][0]; mat4.m[1][0] = mat34.m[1][0]; mat4.m[2][0] = mat34.m[2][0]; mat4.m[3][0] = 0.0;
+	mat4.m[0][1] = mat34.m[0][1]; mat4.m[1][1] = mat34.m[1][1]; mat4.m[2][1] = mat34.m[2][1]; mat4.m[3][1] = 0.0;
+	mat4.m[0][2] = mat34.m[0][2]; mat4.m[1][2] = mat34.m[1][2]; mat4.m[2][2] = mat34.m[2][2]; mat4.m[3][2] = 0.0;
+	mat4.m[0][3] = mat34.m[0][3]; mat4.m[1][3] = mat34.m[1][3]; mat4.m[2][3] = mat34.m[2][3]; mat4.m[3][4] = 1.0;
+
+	// Get orientation
+	QuatfromRotationMatrix(mat4, orientation);
+	// flip the pitch
+	orientation.x = -orientation.x;
+	orientation.z = -orientation.z;
+
+	// Get position
+	position.v[0] = -mat4.m[0][3];  // -x
+	position.v[1] =  mat4.m[1][3];  //  y
+	position.v[2] = -mat4.m[2][3];  // -z
+}
+
+//
+// With thanks to https://github.com/jMonkeyEngine/jmonkeyengine and
+//                https://github.com/phr00t/jMonkeyVR/
+//
+void QuatfromRotationMatrix(const vr::HmdMatrix44_t& mat4, vr::HmdQuaternion_t& orientation)
+{
+	float m00 = mat4.m[0][0];
+	float m01 = mat4.m[0][1]; 
+	float m02 = mat4.m[0][2];
+    float m10 = mat4.m[1][0];
+	float m11 = mat4.m[1][1];
+	float m12 = mat4.m[1][2]; 
+	float m20 = mat4.m[2][0]; 
+	float m21 = mat4.m[2][1]; 
+	float m22 = mat4.m[2][2];
+
+    // first normalize the forward (F), up (U) and side (S) vectors of the rotation matrix
+    // so that the scale does not affect the rotation
+    float lengthSquared = m00 * m00 + m10 * m10 + m20 * m20;
+    if (lengthSquared != 1 && lengthSquared != 0)
+	{
+        lengthSquared = 1.0f / sqrt(lengthSquared);
+        m00 *= lengthSquared;
+        m10 *= lengthSquared;
+        m20 *= lengthSquared;
+    }
+    lengthSquared = m01 * m01 + m11 * m11 + m21 * m21;
+    if (lengthSquared != 1 && lengthSquared != 0) {
+        lengthSquared = 1.0f / sqrt(lengthSquared);
+        m01 *= lengthSquared;
+        m11 *= lengthSquared;
+        m21 *= lengthSquared;
+    }
+    lengthSquared = m02 * m02 + m12 * m12 + m22 * m22;
+    if (lengthSquared != 1 && lengthSquared != 0) {
+        lengthSquared = 1.0f / sqrt(lengthSquared);
+        m02 *= lengthSquared;
+        m12 *= lengthSquared;
+        m22 *= lengthSquared;
+    }
+
+    // Use the Graphics Gems code, from 
+    // ftp://ftp.cis.upenn.edu/pub/graphics/shoemake/quatut.ps.Z
+    // *NOT* the "Matrix and Quaternions FAQ", which has errors!
+
+    // the trace is the sum of the diagonal elements; see
+    // http://mathworld.wolfram.com/MatrixTrace.html
+    float t = m00 + m11 + m22;
+
+    // we protect the division by s by ensuring that s>=1
+    if (t >= 0) // |w| >= .5
+	{ 
+        float s = sqrt(t + 1); // |s|>=1 ...
+        orientation.w = 0.5f * s;
+        s = 0.5f / s;                 // so this division isn't bad
+        orientation.x = (m21 - m12) * s;
+        orientation.y = (m02 - m20) * s;
+        orientation.z = (m10 - m01) * s;
+    } 
+	else if ((m00 > m11) && (m00 > m22))
+	{
+        float s = sqrt(1.0f + m00 - m11 - m22); // |s|>=1
+        orientation.x = s * 0.5f; // |x| >= .5
+        s = 0.5f / s;
+        orientation.y = (m10 + m01) * s;
+        orientation.z = (m02 + m20) * s;
+        orientation.w = (m21 - m12) * s;
+    } 
+	else if (m11 > m22)
+	{
+        float s = sqrt(1.0f + m11 - m00 - m22); // |s|>=1
+        orientation.y = s * 0.5f; // |y| >= .5
+        s = 0.5f / s;
+        orientation.x = (m10 + m01) * s;
+        orientation.z = (m21 + m12) * s;
+        orientation.w = (m02 - m20) * s;
+    } 
+	else
+	{
+        float s = sqrt(1.0f + m22 - m00 - m11); // |s|>=1
+        orientation.z = s * 0.5f; // |z| >= .5
+        s = 0.5f / s;
+        orientation.x = (m02 + m20) * s;
+        orientation.y = (m21 + m12) * s;
+        orientation.w = (m10 - m01) * s;
+    }
 }
