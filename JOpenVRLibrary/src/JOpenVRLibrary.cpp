@@ -36,6 +36,8 @@ struct ErrorInfo
 ErrorInfo           _lastError;
 
 // JNI class / method caching
+static jclass       renderTextureInfo_Class                 = 0;
+static jmethodID    renderTextureInfo_constructor_MethodID  = 0;
 static jclass       matrix4f_Class                          = 0;
 static jmethodID    matrix4f_constructor_MethodID           = 0;
 static jclass       errorInfo_Class                         = 0;
@@ -85,7 +87,7 @@ JNIEXPORT jboolean JNICALL Java_com_valvesoftware_openvr_OpenVR__1initSubsystem(
     if ( !vr::VRCompositor() )
     {
         Reset();
-		SetErrorInfo(env, "Unable to initialise OpenVR compositor!");
+		SetGenericErrorInfo(env, "Unable to initialise OpenVR compositor!");
 		return false;
     }
 	
@@ -167,7 +169,7 @@ JNIEXPORT void JNICALL Java_com_valvesoftware_openvr_OpenVR__1resetTracking(JNIE
 	if (!_initialised)
 		return;
 
-    ovr_RecenterPose(_pHmdSession);
+	_pHmdSession->ResetSeatedZeroPose();
 }
 
 JNIEXPORT void JNICALL Java_com_valvesoftware_openvr_OpenVR__1configureRenderer(
@@ -178,7 +180,7 @@ JNIEXPORT void JNICALL Java_com_valvesoftware_openvr_OpenVR__1configureRenderer(
 	if (!_initialised)
 		return;
 
-	_worldScale = worldScale;
+	//_worldScale = worldScale;
 }
 
 
@@ -198,33 +200,31 @@ JNIEXPORT jobject JNICALL Java_com_valvesoftware_openvr_OpenVR__1getRenderTextur
 	if (!_initialised)
 		return 0;
 
-	ovrFovPort leftFov;
-	ovrFovPort rightFov;
-	leftFov.UpTan     = leftFovUpTan;
-	leftFov.DownTan   = leftFovDownTan;
-	leftFov.LeftTan   = leftFovLeftTan;
-	leftFov.RightTan  = leftFovRightTan;
-	rightFov.UpTan    = rightFovUpTan;
-	rightFov.DownTan  = rightFovDownTan;
-	rightFov.LeftTan  = rightFovLeftTan;
-	rightFov.RightTan = rightFovRightTan;
+	uint32_t width = 0;
+	uint32_t height = 0;
+	uint32_t scaledWidth = 0;
+	uint32_t scaledHeight = 0;
+	uint32_t totalWidth = 0;
+	uint32_t totalHeight = 0;
+
+	// TODO: Is this individual eye render target size?
+	_pHmdSession->GetRecommendedRenderTargetSize(&width, &height);
 
 	// A RenderScaleFactor of 1.0f signifies default (non-scaled) operation
-    Sizei recommendedTex0Size = ovr_GetFovTextureSize(_pHmdSession, ovrEye_Left,  leftFov, RenderScaleFactor);
-    Sizei recommendedTex1Size = ovr_GetFovTextureSize(_pHmdSession, ovrEye_Right, rightFov, RenderScaleFactor);
-    Sizei RenderTargetSize;
-    RenderTargetSize.w = recommendedTex0Size.w + recommendedTex1Size.w;
-    RenderTargetSize.h = (std::max) ( recommendedTex0Size.h, recommendedTex1Size.h );
+	scaledWidth = (uint32_t)ceil((float)width * RenderScaleFactor);
+	scaledHeight = (uint32_t)ceil((float)height * RenderScaleFactor);
+	totalWidth = scaledWidth * 2;
+	totalHeight = scaledHeight;
 
     ClearException(env);
 
     jobject jrenderTextureInfo = env->NewObject(renderTextureInfo_Class, renderTextureInfo_constructor_MethodID,
-									recommendedTex0Size.w,
-									recommendedTex0Size.h,
-									recommendedTex1Size.w,
-									recommendedTex1Size.h,
-                                    RenderTargetSize.w,
-                                    RenderTargetSize.h,
+									scaledWidth,
+									scaledHeight,
+									scaledWidth,
+									scaledHeight,
+                                    totalWidth,
+                                    totalHeight,
 									_hmdDesc.Resolution.w,
 									_hmdDesc.Resolution.h,
                                     (float)RenderScaleFactor
@@ -452,6 +452,15 @@ bool CacheJNIGlobals(JNIEnv *env)
 {
 	bool Success = true;
 
+
+    if (!LookupJNIConstructorGlobal(env,
+                         renderTextureInfo_Class,
+                         "de/fruitfly/ovr/structs/RenderTextureInfo",
+                         renderTextureInfo_constructor_MethodID,
+                         "(IIIIIIIIF)V"))
+    {
+        Success = false;
+    }
 
 
     if (!LookupJNIConstructorGlobal(env,
@@ -767,10 +776,29 @@ void QuatSlerp(vr::HmdQuaternion_t q1, vr::HmdQuaternion_t q2, float t, vr::HmdQ
     }
 
     // Calculate the x, y, z and w values for the quaternion by using a
-    // special
-    // form of linear interpolation for quaternions.
+    // special form of linear interpolation for quaternions.
     quatresult.x = (scale0 * q1.x) + (scale1 * q2.x);
     quatresult.y = (scale0 * q1.y) + (scale1 * q2.y);
     quatresult.z = (scale0 * q1.z) + (scale1 * q2.z);
     quatresult.w = (scale0 * q1.w) + (scale1 * q2.w);
+}
+
+// 
+// Thanks to: https://github.com/ValveSoftware/openvr/blob/master/samples/hellovr_opengl/hellovr_opengl_main.cpp
+//
+//-----------------------------------------------------------------------------
+// Purpose: Helper to get a string from a tracked device property and turn it
+//			into a std::string
+//-----------------------------------------------------------------------------
+std::string GetTrackedDeviceString( vr::IVRSystem *pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError *peError = NULL )
+{
+	uint32_t unRequiredBufferLen = pHmd->GetStringTrackedDeviceProperty( unDevice, prop, NULL, 0, peError );
+	if( unRequiredBufferLen == 0 )
+		return "";
+
+	char *pchBuffer = new char[ unRequiredBufferLen ];
+	unRequiredBufferLen = pHmd->GetStringTrackedDeviceProperty( unDevice, prop, pchBuffer, unRequiredBufferLen, peError );
+	std::string sResult = pchBuffer;
+	delete [] pchBuffer;
+	return sResult;
 }

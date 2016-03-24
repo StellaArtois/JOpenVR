@@ -87,6 +87,7 @@ void ConvertMat34ToPose(const vr::HmdMatrix34_t& mat34, Pose& pose);
 void QuatfromRotationMatrix(const vr::HmdMatrix44_t& mat4, vr::HmdQuaternion_t& orientation);
 void ConvertMat34to44(const vr::HmdMatrix34_t& mat34, vr::HmdMatrix44_t& mat4);
 void QuatSlerp(vr::HmdQuaternion_t q1, vr::HmdQuaternion_t q2, float t, vr::HmdQuaternion_t& quatresult);
+std::string GetTrackedDeviceString( vr::IVRSystem *pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError *peError = NULL );
 
 #ifdef __cplusplus
 }
