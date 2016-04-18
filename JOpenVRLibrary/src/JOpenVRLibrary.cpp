@@ -9,6 +9,7 @@
 
 vr::IVRSystem*       _pHmdSession = 0;
 vr::IVRRenderModels* _pRenderModels = 0;
+vr::TrackedDevicePose_t _rTrackedDevicePose[ vr::k_unMaxTrackedDeviceCount ];
 
 bool                _initialised        = false;
 bool                _performedFirstInit = false;
@@ -244,8 +245,20 @@ JNIEXPORT jobject JNICALL Java_com_valvesoftware_openvr_OpenVR__1getTrackedPoses
     if (!_initialised)
         return 0;
 
-	vr::TrackedDevicePose_t m_rTrackedDevicePose[ vr::k_unMaxTrackedDeviceCount ];
-	m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking
+	vr::VRCompositor()->WaitGetPoses(_rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, NULL, 0 );
+
+	// If a pose is not valid, we'll just use the last valid pose information.
+
+	for ( int nDevice = 0; nDevice < vr::k_unMaxTrackedDeviceCount; ++nDevice )
+	{
+		if ( _rTrackedDevicePose[nDevice].bPoseIsValid ) 
+		{
+			switch (_pHmdSession->GetTrackedDeviceClass(nDevice))
+			{		
+			case vr::TrackedDeviceClass_Controller:
+			}
+		}
+	}
 
 	OpenVRUtil.convertMatrix4toQuat(hmdPose, rotStore);
 
